@@ -1,5 +1,6 @@
 ﻿using NumSharp;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -15,29 +16,40 @@ namespace Tensorflow
         protected int _current_version;
         protected byte[] _target;
         protected IntPtr _session;
+        public Status Status;
+        public Graph graph => _graph;
 
-        public BaseSession(string target = "", Graph graph = null)
+        public BaseSession(string target = "", Graph g = null, SessionOptions opts = null)
         {
-            if(graph is null)
-            {
-                _graph = ops.get_default_graph();
-            }
-            else
-            {
-                _graph = graph;
-            }
+            _graph = g is null ? ops.get_default_graph() : g;
 
             _target = UTF8Encoding.UTF8.GetBytes(target);
-            var opts = c_api.TF_NewSessionOptions();
-            var status = new Status();
-            _session = c_api.TF_NewSession(_graph, opts, status);
 
-            c_api.TF_DeleteSessionOptions(opts);
+            SessionOptions newOpts = null;
+            if (opts == null)
+                newOpts = c_api.TF_NewSessionOptions();
+
+            Status = new Status();
+
+            _session = c_api.TF_NewSession(_graph, opts ?? newOpts, Status);
+
+            // dispose newOpts
+            if (opts == null)
+                c_api.TF_DeleteSessionOptions(newOpts);
+
+            Status.Check(true);
         }
 
         public virtual NDArray run(object fetches, params FeedItem[] feed_dict)
         {
             return _run(fetches, feed_dict);
+        }
+
+        public virtual NDArray run(object fetches, Hashtable feed_dict = null)
+        {
+            var feed_items = feed_dict == null ? new FeedItem[0] :
+                feed_dict.Keys.OfType<object>().Select(key => new FeedItem(key, feed_dict[key])).ToArray();
+            return _run(fetches, feed_items);
         }
 
         private NDArray _run(object fetches, FeedItem[] feed_dict = null)
@@ -80,17 +92,35 @@ namespace Tensorflow
                             case int val:
                                 feed_dict_tensor[subfeed_t] = (NDArray)val;
                                 break;
+                            case long val:
+                                feed_dict_tensor[subfeed_t] = (NDArray)val;
+                                break;
+                            case long[] val:
+                                feed_dict_tensor[subfeed_t] = (NDArray)val;
+                                break;
+                            case int[] val:
+                                feed_dict_tensor[subfeed_t] = (NDArray)val;
+                                break;
                             case string val:
                                 feed_dict_tensor[subfeed_t] = (NDArray)val;
                                 break;
                             case byte[] val:
+                                feed_dict_tensor[subfeed_t] = np.array(val);
+                                break;
+                            case char[] val:
+                                feed_dict_tensor[subfeed_t] = (NDArray)val;
+                                break;
+                            case bool val:
+                                feed_dict_tensor[subfeed_t] = (NDArray)val;
+                                break;
+                            case bool[] val:
                                 feed_dict_tensor[subfeed_t] = (NDArray)val;
                                 break;
                             default:
                                 Console.WriteLine($"can't handle data type of subfeed_val");
                                 throw new NotImplementedException("_run subfeed");
                         }
-                        
+
                         feed_map[subfeed_t.name] = (subfeed_t, subfeed_val);
                     }
                 }
@@ -109,7 +139,7 @@ namespace Tensorflow
 
             // We only want to really perform the run if fetches or targets are provided,
             // or if the call is a partial run that specifies feeds.
-            var results = _do_run(final_targets.Select(x => (Operation)(object)x).ToList(), final_fetches, feed_dict_tensor);
+            var results = _do_run(final_targets.Select(x => (Operation)x).ToList(), final_fetches, feed_dict_tensor);
 
             return fetch_handler.build_results(this, results);
         }
@@ -129,9 +159,9 @@ namespace Tensorflow
         /// </returns>
         private NDArray[] _do_run(List<Operation> target_list, List<Tensor> fetch_list, Dictionary<object, object> feed_dict)
         {
-            var feeds = feed_dict.Select(x => 
+            var feeds = feed_dict.Select(x =>
             {
-                if(x.Key is Tensor tensor)
+                if (x.Key is Tensor tensor)
                 {
                     switch (x.Value)
                     {
@@ -140,7 +170,7 @@ namespace Tensorflow
                         case Tensor t1:
                             return new KeyValuePair<TF_Output, Tensor>(tensor._as_tf_output(), t1);
                         case NDArray nd:
-                            return new KeyValuePair<TF_Output, Tensor>(tensor._as_tf_output(), new Tensor(nd));
+                            return new KeyValuePair<TF_Output, Tensor>(tensor._as_tf_output(), new Tensor(nd, tensor.dtype));
                         case int intVal:
                             return new KeyValuePair<TF_Output, Tensor>(tensor._as_tf_output(), new Tensor(intVal));
                         case float floatVal:
@@ -204,12 +234,24 @@ namespace Tensorflow
 
             switch (tensor.dtype)
             {
+                case TF_DataType.TF_BOOL:
+                    var bools = new bool[tensor.size];
+                    for (ulong i = 0; i < tensor.size; i++)
+                        bools[i] = *(bool*)(offset + (int)(tensor.itemsize * i));
+                    nd = np.array(bools).reshape(ndims);
+                    break;
                 case TF_DataType.TF_STRING:
                     var bytes = tensor.Data();
                     // wired, don't know why we have to start from offset 9.
                     // length in the begin
                     var str = UTF8Encoding.Default.GetString(bytes, 9, bytes[8]);
                     nd = np.array(str).reshape();
+                    break;
+                case TF_DataType.TF_UINT8:
+                    var _bytes = new byte[tensor.size];
+                    for (ulong i = 0; i < tensor.size; i++)
+                        _bytes[i] = *(byte*)(offset + (int)(tensor.itemsize * i));
+                    nd = np.array(_bytes).reshape(ndims);
                     break;
                 case TF_DataType.TF_INT16:
                     var shorts = new short[tensor.size];

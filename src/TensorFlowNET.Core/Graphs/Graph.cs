@@ -69,7 +69,10 @@ namespace Tensorflow
         private List<Tensor> _unfeedable_tensors = new List<Tensor>();
 
         public string _name_stack = "";
-        public string _graph_key;
+        private string _graph_key;
+        public string graph_key => _graph_key;
+        public string _last_loss_reduction;
+
         public Status Status { get; }
 
         /// <summary>
@@ -160,7 +163,14 @@ namespace Tensorflow
                 }
                 else if (!name.Contains(":") & !allow_operation)
                 {
-                    throw new NotImplementedException("_as_graph_element_locked");
+                    // Looks like an Operation name but can't be an Operation.
+                    if (_nodes_by_name.ContainsKey(name))
+                        // Yep, it's an Operation name
+                        throw new ValueError($"The name {name} refers to an Operation, not a {types_str}.");
+                    else
+                        throw new ValueError(
+                            $"The name {name} looks like an (invalid) Operation name, not a {types_str}" +
+                            " Tensor names must be of the form \"<op_name>:<output_index>\".");
                 }
             }
 
@@ -388,7 +398,7 @@ namespace Tensorflow
                 var handle = return_oper_handle.node + Marshal.SizeOf<TF_Operation>() * i;
                 return_opers[i] = new Operation(*(IntPtr*)handle);
             }
-
+            
             return return_opers;
         }
 
@@ -436,7 +446,19 @@ namespace Tensorflow
 
         public void Dispose()
         {
-            c_api.TF_DeleteGraph(_handle);
+            // c_api.TF_DeleteGraph(_handle);
+        }
+
+        /// <summary>
+        /// Returns the <see cref="Tensor"/> with the given <paramref name="name"/>.
+        /// This method may be called concurrently from multiple threads.
+        /// </summary>
+        /// <param name="name">The name of the `Tensor` to return.</param>
+        /// <exception cref="KeyError">If <paramref name="name"/> does not correspond to a tensor in this graph.</exception>
+        /// <returns>The `Tensor` with the given <paramref name="name"/>.</returns>
+        public Tensor get_tensor_by_name(string name)
+        {
+            return (Tensor)this.as_graph_element(name, allow_tensor: true, allow_operation: false);
         }
 
         public void __enter__()

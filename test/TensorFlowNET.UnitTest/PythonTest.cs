@@ -8,13 +8,14 @@ using Newtonsoft.Json.Linq;
 using NumSharp;
 using Tensorflow;
 using Tensorflow.Util;
+using static Tensorflow.Python;
 
 namespace TensorFlowNET.UnitTest
 {
     /// <summary>
     /// Use as base class for test classes to get additional assertions
     /// </summary>
-    public class PythonTest : Python
+    public class PythonTest
     {
         #region python compatibility layer
         protected PythonTest self { get => this; }
@@ -80,6 +81,13 @@ namespace TensorFlowNET.UnitTest
             assertEqual(given, expected);
         }
 
+        public void assert(object given)
+        {
+            if (given is bool)
+                Assert.IsTrue((bool)given);
+            Assert.IsNotNull(given);
+        }
+
         public void assertIsNotNone(object given)
         {
             Assert.IsNotNull(given);
@@ -95,9 +103,25 @@ namespace TensorFlowNET.UnitTest
             Assert.IsTrue(cond);
         }
 
+        public void assertAllClose(NDArray array1, NDArray array2, double eps = 1e-5)
+        {
+            Assert.IsTrue(np.allclose(array1, array2, rtol: eps));
+        }
+
+        public void assertAllClose(double value, NDArray array2, double eps = 1e-5)
+        {
+            var array1 = np.ones_like(array2) * value;
+            Assert.IsTrue(np.allclose(array1, array2, rtol: eps));
+        }
+
+        public void assertProtoEquals(object toProto, object o)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
 
-        #region tensor evaluation
+        #region tensor evaluation and test session
 
         protected object _eval_helper(Tensor[] tensors)
         {
@@ -143,10 +167,7 @@ namespace TensorFlowNET.UnitTest
             //    return self._eval_helper(tensors)
             //  else:
             {
-                var sess = ops.get_default_session();
-                if (sess == null)
-                    sess = self.session();
-                with<Session>(sess, s =>
+                with(tf.Session(), s =>
                 {
                     var ndarray=tensor.eval();
                     if (typeof(T) == typeof(double))
@@ -168,6 +189,11 @@ namespace TensorFlowNET.UnitTest
             }
         }
 
+
+        public Session cached_session()
+        {
+            throw new NotImplementedException();
+        }
 
         //Returns a TensorFlow Session for use in executing tests.
         public Session session(Graph graph = null, object config = null, bool use_gpu = false, bool force_gpu = false)
@@ -280,7 +306,7 @@ namespace TensorFlowNET.UnitTest
             });
             //TODO: use this instead of normal session
             //return new ErrorLoggingSession(graph = graph, config = prepare_config(config))
-            return new Session(graph: graph);//, config = prepare_config(config))
+            return new Session(graph);//, config = prepare_config(config))
         }
 
         #endregion

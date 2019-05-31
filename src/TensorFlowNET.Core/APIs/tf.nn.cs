@@ -26,7 +26,17 @@ namespace Tensorflow
                     partition_strategy: partition_strategy,
                     name: name);
 
-            public static IActivation relu => new relu();
+            public static Tensor embedding_lookup(Tensor @params,
+                Tensor ids,
+                string partition_strategy = "mod",
+                string name = null) => embedding_ops._embedding_lookup_and_transform(new Tensor[] { @params },
+                    ids,
+                    partition_strategy: partition_strategy,
+                    name: name);
+
+            public static IActivation relu() => new relu();
+
+            public static Tensor relu(Tensor features, string name = null) => gen_nn_ops.relu(features, name);
 
             public static Tensor[] fused_batch_norm(Tensor x,
                 RefVariable scale,

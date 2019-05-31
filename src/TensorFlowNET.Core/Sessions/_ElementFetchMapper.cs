@@ -10,19 +10,18 @@ namespace Tensorflow
     /// </summary>
     public class _ElementFetchMapper : _FetchMapper
     {
-        private Func<List<object>, object> _contraction_fn;
+        private Func<List<NDArray>, object> _contraction_fn;
 
-        public _ElementFetchMapper(object[] fetches, Func<List<object>, object> contraction_fn)
+        public _ElementFetchMapper(object[] fetches, Func<List<NDArray>, object> contraction_fn)
         {
             var g = ops.get_default_graph();
-            ITensorOrOperation el = null;
 
             foreach(var fetch in fetches)
             {
-                el = g.as_graph_element(fetch, allow_tensor: true, allow_operation: true);
+                var el = g.as_graph_element(fetch, allow_tensor: true, allow_operation: true);
+                _unique_fetches.Add(el);
             }
-
-            _unique_fetches.Add(el);
+            
             _contraction_fn = contraction_fn;
         }
 
@@ -31,7 +30,7 @@ namespace Tensorflow
         /// </summary>
         /// <param name="values"></param>
         /// <returns></returns>
-        public override NDArray build_results(List<object> values)
+        public override NDArray build_results(List<NDArray> values)
         {
             NDArray result = null;
 

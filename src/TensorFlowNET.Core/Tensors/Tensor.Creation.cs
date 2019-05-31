@@ -20,9 +20,9 @@ namespace Tensorflow
             _handle = handle;
         }
 
-        public Tensor(NDArray nd)
+        public Tensor(NDArray nd, TF_DataType? tensorDType = null)
         {
-            _handle = Allocate(nd);
+            _handle = Allocate(nd, tensorDType: tensorDType);
         }
 
         public unsafe Tensor(byte[] buffer)
@@ -38,8 +38,14 @@ namespace Tensorflow
             status.Check(true);
         }
 
-        private IntPtr Allocate(NDArray nd)
+        private IntPtr Allocate(NDArray nd, TF_DataType? tensorDType = null)
         {
+            if (tensorDType == TF_DataType.TF_STRING &&
+                nd.dtype.Name == "Byte")
+            {
+                return new Tensor(nd.Data<byte>());
+            }
+
             IntPtr dotHandle = IntPtr.Zero;
             ulong size = 0;
 
@@ -55,11 +61,18 @@ namespace Tensorflow
             var nd1 = nd.ravel();
             switch (nd.dtype.Name)
             {
+                case "Boolean":
+                    var boolVals = Array.ConvertAll(nd1.Data<bool>(), x => Convert.ToByte(x));
+                    Marshal.Copy(boolVals, 0, dotHandle, nd.size);
+                    break;
                 case "Int16":
                     Marshal.Copy(nd1.Data<short>(), 0, dotHandle, nd.size);
                     break;
                 case "Int32":
                     Marshal.Copy(nd1.Data<int>(), 0, dotHandle, nd.size);
+                    break;
+                case "Int64":
+                    Marshal.Copy(nd1.Data<long>(), 0, dotHandle, nd.size);
                     break;
                 case "Single":
                     Marshal.Copy(nd1.Data<float>(), 0, dotHandle, nd.size);
@@ -67,45 +80,13 @@ namespace Tensorflow
                 case "Double":
                     Marshal.Copy(nd1.Data<double>(), 0, dotHandle, nd.size);
                     break;
-                //case "Byte":
-                    /*var bb = nd.Data<byte>();
-                    var bytes = Marshal.AllocHGlobal(bb.Length);
-                    Marshal.Copy(bb, 0, bytes, bb.Length);
-                    ulong bytes_len = c_api.TF_StringEncodedSize((ulong)bb.Length);
-                    var dataTypeByte = ToTFDataType(nd.dtype);
-                    // shape
-                    var dims2 = nd.shape.Select(x => (long)x).ToArray();
-
-                    var tfHandle2 = c_api.TF_AllocateTensor(dataTypeByte,
-                        dims2,
-                        nd.ndim,
-                        bytes_len + sizeof(Int64));
-
-                    dotHandle = c_api.TF_TensorData(tfHandle2);
-                    Marshal.WriteInt64(dotHandle, 0);
-                    c_api.TF_StringEncode(bytes, (ulong)bb.Length, dotHandle + sizeof(Int64), bytes_len, status);
-                    return tfHandle2;*/
+                case "Byte":
+                    Marshal.Copy(nd1.Data<byte>(), 0, dotHandle, nd.size);
                     break;
-                //case "String":
-                    /*string ss = nd.Data<string>()[0];
-                    var str = Marshal.StringToHGlobalAnsi(ss);
-                    ulong dst_len = c_api.TF_StringEncodedSize((ulong)ss.Length);
-                    var dataType1 = ToTFDataType(nd.dtype);
-                    // shape
-                    var dims1 = nd.shape.Select(x => (long)x).ToArray();
-
-                    var tfHandle1 = c_api.TF_AllocateTensor(dataType1,
-                        dims1,
-                        nd.ndim,
-                        dst_len + sizeof(Int64));
-
-                    dotHandle = c_api.TF_TensorData(tfHandle1);
-                    Marshal.WriteInt64(dotHandle, 0);
-                    c_api.TF_StringEncode(str, (ulong)ss.Length, dotHandle + sizeof(Int64), dst_len, status);
-                    return tfHandle1;*/
-                    break;
+                case "String":
+                    return new Tensor(UTF8Encoding.UTF8.GetBytes(nd.Data<string>(0)));
                 default:
-                    throw new NotImplementedException("Marshal.Copy failed.");
+                    throw new NotImplementedException($"Marshal.Copy failed for {nd.dtype.Name}.");
             }
             
             // Free the original buffer and set flag

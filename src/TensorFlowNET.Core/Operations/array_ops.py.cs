@@ -2,13 +2,17 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using static Tensorflow.Python;
 
 namespace Tensorflow
 {
-    public class array_ops : Python
+    public class array_ops
     {
         public static Tensor placeholder_with_default<T>(T input, int[] shape, string name = null) 
             => gen_array_ops.placeholder_with_default(input, shape, name);
+
+        public static Tensor prevent_gradient(Tensor input, string message = "", string name = null)
+            => gen_array_ops.prevent_gradient(input, message: message, name: name);
 
         public static Tensor zeros(Shape shape, TF_DataType dtype = TF_DataType.TF_FLOAT, string name = null)
         {
@@ -229,7 +233,7 @@ namespace Tensorflow
             });
         }
 
-        public static Tensor where(Tensor condition, Tensor x = null, Tensor y = null, string name = null)
+        public static Tensor where(Tensor condition, object x = null, object y = null, string name = null)
         {
             if( x == null && y == null)
             {
@@ -470,5 +474,9 @@ namespace Tensorflow
             throw new NotImplementedException("array_ops.stack");
         }
 
+        public static Tensor placeholder(TF_DataType dtype)
+        {
+            throw new NotImplementedException("array_ops.placeholder");
+        }
     }
 }

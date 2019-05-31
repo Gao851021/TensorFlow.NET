@@ -22,6 +22,12 @@ namespace Tensorflow
                         return math_grad._AddGrad(oper, out_grads);
                     case "BiasAdd":
                         return nn_grad._BiasAddGrad(oper, out_grads);
+                    case "ConcatV2":
+                        return array_grad._ConcatGradV2(oper, out_grads);
+                    case "DivNoNan":
+                        return math_grad._DivNoNanGrad(oper, out_grads);
+                    case "Exp":
+                        return math_grad._ExpGrad(oper, out_grads);
                     case "Identity":
                         return math_grad._IdGrad(oper, out_grads);
                     case "Log":
@@ -48,12 +54,18 @@ namespace Tensorflow
                         return array_grad._ReshapeGrad(oper, out_grads);
                     case "Relu":
                         return nn_grad._ReluGrad(oper, out_grads);
+                    case "Sigmoid":
+                        return math_grad._SigmoidGrad(oper, out_grads);
+                    case "Square":
+                        return math_grad._SquareGrad(oper, out_grads);
                     case "Squeeze":
                         return array_grad._SqueezeGrad(oper, out_grads);
                     case "Softmax":
                         return nn_grad._SoftmaxGrad(oper, out_grads);
                     case "SoftmaxCrossEntropyWithLogits":
                         return nn_grad._SoftmaxCrossEntropyWithLogitsGrad(oper, out_grads);
+                    case "SparseSoftmaxCrossEntropyWithLogits":
+                        return nn_grad._SparseSoftmaxCrossEntropyWithLogitsGrad(oper, out_grads);
                     case "Transpose":
                         return array_grad._TransposeGrad(oper, out_grads);
                     case "TopK":

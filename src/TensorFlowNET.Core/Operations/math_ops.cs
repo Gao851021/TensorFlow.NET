@@ -3,13 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Tensorflow.Framework;
+using static Tensorflow.Python;
 
 namespace Tensorflow
 {
     /// <summary>
     /// python\ops\math_ops.py
     /// </summary>
-    public class math_ops : Python
+    public class math_ops
     {
         public static Tensor abs(Tensor x, string name = null)
         {
@@ -23,7 +24,7 @@ namespace Tensorflow
             });
         }
 
-        public static Tensor add(Tensor x, Tensor y, string name = null) 
+        public static Tensor add<Tx, Ty>(Tx x, Ty y, string name = null) 
             => gen_math_ops.add(x, y, name);
 
         /// <summary>
@@ -64,11 +65,47 @@ namespace Tensorflow
             });
         }
 
+        /// <summary>
+        ///    Returns 0 if the denominator is zero.
+        /// </summary>
+        /// <param name="x">
+        /// </param>
+        /// <param name="y">
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'DivNoNan'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    
+        ///    *NOTE*: <c>DivNoNan</c> supports broadcasting. More about broadcasting
+        ///    [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+        /// </remarks>
+        public static Tensor div_no_nan(Tensor x, Tensor y, string name = null)
+        {
+            return with(ops.name_scope(name, "div_no_nan", (x, y)), name_scope =>
+            {
+                name = name_scope;
+                x = ops.convert_to_tensor(x, name: "x");
+                y = ops.convert_to_tensor(y, name: "y", dtype: x.dtype.as_base_dtype());
+                var x_dtype = x.dtype.as_base_dtype();
+                var y_dtype = y.dtype.as_base_dtype();
+                if (x_dtype != y_dtype)
+                    throw new TypeError($"x and y must have the same dtype, got {x_dtype} != {y_dtype}");
+                return gen_math_ops.div_no_nan(x, y, name: name);
+            });
+        }
+
         public static Tensor equal<Tx, Ty>(Tx x, Ty y, string name = null)
             => gen_math_ops.equal(x, y, name: name);
 
-        public static Tensor multiply(Tensor x, Tensor y, string name = null)
+        public static Tensor multiply<Tx, Ty>(Tx x, Ty y, string name = null)
             => gen_math_ops.mul(x, y, name: name);
+
+        public static Tensor mul_no_nan<Tx, Ty>(Tx x, Ty y, string name = null)
+            => gen_math_ops.mul_no_nan(x, y, name: name);
 
         /// <summary>
         /// Computes the mean of elements across dimensions of a tensor.
@@ -119,7 +156,13 @@ namespace Tensorflow
                 return _may_reduce_to_scalar(keepdims, axis, m);
             }
         }
-        
+
+        public static Tensor sigmoid<T>(T x, string name = null)
+        {
+            var x_tensor = ops.convert_to_tensor(x, name: "x");
+            return gen_math_ops.sigmoid(x_tensor, name: name);
+        }
+
         /// <summary>
         /// Returns (x - y)(x - y) element-wise.
         /// </summary>
@@ -244,6 +287,13 @@ namespace Tensorflow
             return _may_reduce_to_scalar(keepdims, axis, max);
         }
 
+        public static Tensor reduce_min(Tensor input_tensor, int[] axis = null, bool keepdims = false, string name = null)
+        {
+            var r = _ReductionDims(input_tensor, axis);
+            var min = gen_math_ops._min(input_tensor, r, keepdims, name);
+            return _may_reduce_to_scalar(keepdims, axis, min);
+        }
+
         /// <summary>
         /// Casts a tensor to type `int32`.
         /// </summary>
@@ -327,10 +377,15 @@ namespace Tensorflow
             else
             {
                 var rank = common_shapes.rank(x);
-                if (rank != null)
+
+                // we rely on Range and Rank to do the right thing at run-time.
+                if (rank == -1) return range(0, array_ops.rank(x));
+
+                if (rank.HasValue && rank.Value > -1)
                 {
                    return constant_op.constant(np.arange(rank.Value), TF_DataType.TF_INT32);
                 }
+
                 return range(0, rank, 1);
             }
         }

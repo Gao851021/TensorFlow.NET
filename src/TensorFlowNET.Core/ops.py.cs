@@ -8,10 +8,11 @@ using Google.Protobuf;
 using System.Linq;
 using NumSharp;
 using System.ComponentModel;
+using static Tensorflow.Python;
 
 namespace Tensorflow
 {
-    public partial class ops : Python
+    public partial class ops
     {
         public static void add_to_collection<T>(string name, T value)
         {
@@ -101,8 +102,10 @@ namespace Tensorflow
             default_graph = tf.Graph();
         }
 
+        public static Graph _get_graph_from_inputs(params Tensor[] op_input_list)
+            => _get_graph_from_inputs(op_input_list: op_input_list, graph: null);
 
-        public static Graph _get_graph_from_inputs(List<Tensor> op_input_list, Graph graph = null)
+        public static Graph _get_graph_from_inputs(Tensor[] op_input_list, Graph graph = null)
         {
             foreach(var op_input in op_input_list)
             {
@@ -360,6 +363,8 @@ namespace Tensorflow
         /// <returns>The default `Session` being used in the current thread.</returns>
         public static Session get_default_session()
         {
+            if (tf.defaultSession == null)
+                tf.defaultSession = tf.Session();
             return tf.defaultSession;
         }
 
@@ -468,6 +473,8 @@ namespace Tensorflow
                     return array_ops._autopacking_helper(tensors, dtype, name == null ? "packed" : name);
                 case RefVariable varVal:
                     return varVal._TensorConversionFunction(as_ref: as_ref);
+                case ResourceVariable varVal:
+                    return null;
                 case object[] objects:
                     return array_ops._autopacking_conversion_function(objects, dtype: dtype, name: name);
                 default:

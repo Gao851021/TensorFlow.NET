@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using static Tensorflow.Python;
 
 namespace Tensorflow.Layers
 {
@@ -37,7 +38,7 @@ namespace Tensorflow.Layers
             VariableScope scope = null)
         {
             _set_scope(scope);
-            _graph = ops._get_graph_from_inputs(new List<Tensor> { inputs }, graph: _graph);
+            _graph = ops._get_graph_from_inputs(new Tensor[] { inputs }, graph: _graph);
 
             variable_scope scope_context_manager = null;
             if (built)
@@ -50,7 +51,7 @@ namespace Tensorflow.Layers
                     auxiliary_name_scope: false);
             }
 
-            Python.with(scope_context_manager, scope2 => _current_scope = scope2);
+            with(scope_context_manager, scope2 => _current_scope = scope2);
             // Actually call layer
             var outputs = base.__call__(new Tensor[] { inputs }, training: training);
 
@@ -58,6 +59,13 @@ namespace Tensorflow.Layers
             _add_elements_to_collection(_updates.ToArray(), new string[] { ops.GraphKeys.UPDATE_OPS });
 
             return outputs;
+        }
+
+        protected override void _init_set_name(string name, bool zero_based = true)
+        {
+            // Determine layer name (non-unique).
+            base._init_set_name(name, zero_based: zero_based);
+            _base_name = this.name;
         }
 
         protected virtual void _add_elements_to_collection(Operation[] elements, string[] collection_list)
@@ -77,12 +85,12 @@ namespace Tensorflow.Layers
             TF_DataType dtype = TF_DataType.DtInvalid,
             IInitializer initializer = null,
             bool? trainable = null,
-            VariableSynchronization synchronization = VariableSynchronization.AUTO,
-            VariableAggregation aggregation = VariableAggregation.NONE)
+            VariableSynchronization synchronization = VariableSynchronization.Auto,
+            VariableAggregation aggregation = VariableAggregation.None)
         {
             var default_graph = ops.get_default_graph();
             Graph init_graph = null;
-            RefVariable[] existing_variables = null;
+            VariableV1[] existing_variables = null;
 
             if (default_graph.building_function)
             {
@@ -140,10 +148,18 @@ namespace Tensorflow.Layers
         {
             if (_scope == null)
             {
-                Python.with(tf.variable_scope(scope, default_name: _base_name), captured_scope =>
+                if(_reuse.HasValue && _reuse.Value)
                 {
-                    _scope = captured_scope;
-                });
+                    throw new NotImplementedException("_set_scope _reuse.HasValue");
+                    /*with(tf.variable_scope(scope == null ? _base_name : scope),
+                        captured_scope => _scope = captured_scope);*/
+                }
+                else
+                {
+                    with(tf.variable_scope(scope, default_name: _base_name),
+                        captured_scope => _scope = captured_scope);
+                }
+
             }
         }
     }

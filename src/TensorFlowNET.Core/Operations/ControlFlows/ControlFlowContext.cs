@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Tensorflow.Operations.ControlFlows;
+using static Tensorflow.ControlFlowContextDef;
+using static Tensorflow.Python;
 
 namespace Tensorflow.Operations
 {
@@ -22,21 +25,25 @@ namespace Tensorflow.Operations
     /// 4. A ControlFlowContext has _context_stack.
     /// Pushed and popped by ctxt.Enter() and ctxt.Exit()
     /// </summary>
-    public abstract class ControlFlowContext : Python, IPython, IControlFlowContext
+    public abstract class ControlFlowContext : IPython
     {
         /// <summary>
         /// The predicate tensor in this branch
         /// </summary>
         protected Tensor _pivot;
+        public Tensor pivot
+        {
+            get => _pivot;
+        }
 
-        protected Stack<IControlFlowContext> _context_stack;
-        protected IControlFlowContext _outer_context;
+        protected Stack<ControlFlowContext> _context_stack;
+        protected ControlFlowContext _outer_context;
 
         protected Dictionary<string, ITensorOrOperation> _external_values;
 
         public ControlFlowContext()
         {
-            _context_stack = new Stack<IControlFlowContext>();
+            _context_stack = new Stack<ControlFlowContext>();
         }
 
         public string name { get => _name; }
@@ -111,17 +118,27 @@ namespace Tensorflow.Operations
             _AddOpInternal(op);
         }
 
-        public IControlFlowContext outer_context { get { return _outer_context; } }
+        public ControlFlowContext outer_context { get { return _outer_context; } }
         public HashSet<string> values => _values;
+
+        public virtual GradLoopState grad_state => throw new NotImplementedException("abstract method");
+
+        public virtual bool back_prop => throw new NotImplementedException("abstract method");
+
         public virtual Tensor AddValue(Tensor val)
         {
             // to be overridden
             return null;
         }
 
-        public virtual void AddInnerOp(Operation resultOp)
+        /// <summary>
+        /// Notifies a scope about an operator added to an inner scope.
+        /// </summary>
+        /// <param name="op"></param>
+        public virtual void AddInnerOp(Operation op)
         {
-            // to be overridden
+            if (_outer_context != null)
+                _outer_context.AddInnerOp(op);
         }
 
         protected HashSet<string> _values = new HashSet<string>();
@@ -131,68 +148,10 @@ namespace Tensorflow.Operations
         /// </summary>
         protected virtual void _AddOpInternal(Operation op)
         {
-            if (op.inputs.Length == 0)
-            {
-                //If we're in a while loop, remove any control inputs from outside the
-                // loop.
-                _RemoveExternalControlEdges(op);
-                if (!op.control_inputs.Any(input_op => OpInContext(input_op)))
-                    op._add_control_input(_pivot.op);
-            }
-            else
-            {
-                // Make each input to 'op' available in this CondContext. If an input is
-                // already part of this context there's nothing to do, but if it's
-                // external, AddValue() will handle adding the appropriate Switch node and
-                // other bookkeeping.
-                for (int index = 0; index < op.inputs.Length; index++)
-                {
-                    var x = op.inputs[index];
-                    Tensor real_x = null;
-                    if (op.type == "Merge" && x.op.type == "NextIteration")
-                    {
-                        //# Edge case: if we're importing a while loop inside this CondContext,
-                        //# AddValue() will not correctly handle the NextIteration inputs to
-                        //# Merge node. The problem is that the NextIteration should also be
-                        //# part of this context, but if we're importing it won't have been
-                        //# processed and added to the context yet, so AddValue() will try to
-                        //# add a Switch which results in an invalid graph. Instead, we use the
-                        //# NextIteration input as-is here, and it will eventually be added to
-                        //# the context via AddOp().
-                        real_x = x;
-                    }
-                    else
-                    {
-                        real_x = AddValue(x);
-                    }
-                    if (real_x != x)
-                        op._update_input(index, real_x);
-                }
-                // Remove any external control dependency on this op.
-                _RemoveExternalControlEdges(op);
-                // TODO: implement below code dependencies
-                //if (op.graph._is_function(op.type) || op.type == "SymbolicGradient")
-                //    op._add_control_input(_pivot.op);
-            }
             
-            // Mark op's outputs as seen by this context and any outer contexts.
-            var output_names = op.outputs.Select(x => x.name).ToArray();
-            IControlFlowContext ctxt = this;
-            while (ctxt != null)
-            {
-                foreach(var name in output_names)
-                    ctxt.values.Add(name);
-                ctxt = ctxt.outer_context;
-            }
-
-            if (_outer_context != null || !control_flow_ops.IsLoopExit(op))
-                op.graph.prevent_fetching(op);
-
-            if (_outer_context != null)
-                _outer_context.AddInnerOp(op);
         }
 
-        private bool OpInContext(Operation op)
+        protected bool OpInContext(Operation op)
         {
             return IsContainingContext(op._get_control_flow_context(), this);
         }
@@ -200,7 +159,7 @@ namespace Tensorflow.Operations
         /// <summary>
         /// Returns true if `maybe_containing_ctxt` is or contains `ctxt`.
         /// </summary>
-        public static bool IsContainingContext(IControlFlowContext ctxt, ControlFlowContext maybe_containing_ctxt)
+        public static bool IsContainingContext(ControlFlowContext ctxt, ControlFlowContext maybe_containing_ctxt)
         {
             while (ctxt != maybe_containing_ctxt)
             {
@@ -217,8 +176,44 @@ namespace Tensorflow.Operations
             var internal_control_inputs = op.control_inputs;
         }
 
+        /// <summary>
+        /// Return the while context containing this context
+        /// </summary>
+        public virtual WhileContext GetWhileContext()
+        {
+            if (_outer_context != null)
+                return _outer_context.GetWhileContext();
+            return null;
+        }
+
+        /// <summary>
+        /// Deserializes `context_def` into the appropriate ControlFlowContext.
+        /// </summary>
+        /// <param name="context_def">ControlFlowContextDef proto</param>
+        /// <param name="import_scope">Name scope to add</param>
+        /// <returns>A ControlFlowContext subclass</returns>
+        protected ControlFlowContext from_control_flow_context_def(ControlFlowContextDef context_def, string import_scope = "")
+        {
+            switch (context_def.CtxtCase)
+            {
+                case CtxtOneofCase.CondCtxt:
+                    return new CondContext().from_proto(context_def.CondCtxt, import_scope: import_scope);
+                case CtxtOneofCase.WhileCtxt:
+                    return new WhileContext().from_proto(context_def.WhileCtxt, import_scope: import_scope);
+            }
+
+            throw new NotImplementedException($"Unknown ControlFlowContextDef field: {context_def.CtxtCase}");
+        }
+
+        public object to_proto()
+        {
+            throw new NotImplementedException();
+        }
+
+
         public void Dispose()
         {
         }
+
     }
 }

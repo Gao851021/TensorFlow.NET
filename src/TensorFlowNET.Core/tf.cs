@@ -8,12 +8,14 @@ namespace Tensorflow
 {
     public static partial class tf
     {
+        public static TF_DataType bytes = TF_DataType.TF_STRING;
         public static TF_DataType int16 = TF_DataType.TF_INT16;
         public static TF_DataType int32 = TF_DataType.TF_INT32;
+        public static TF_DataType int64 = TF_DataType.TF_INT64;
         public static TF_DataType float16 = TF_DataType.TF_HALF;
         public static TF_DataType float32 = TF_DataType.TF_FLOAT;
         public static TF_DataType float64 = TF_DataType.TF_DOUBLE;
-        public static TF_DataType boolean = TF_DataType.TF_BOOL;
+        public static TF_DataType @bool = TF_DataType.TF_BOOL;
         public static TF_DataType chars = TF_DataType.TF_STRING;
 
         public static Context context = new Context(new ContextOptions(), new Status());
@@ -45,13 +47,6 @@ namespace Tensorflow
         }
 
         public static string VERSION => c_api.StringPiece(c_api.TF_Version());
-
-        public static Graph get_default_graph()
-        {
-            return ops.get_default_graph();
-        }
-
-        public static Graph Graph() => new Graph();
 
         public static Session Session()
         {

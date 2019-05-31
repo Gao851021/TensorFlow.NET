@@ -3,13 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using static Tensorflow.Python;
 
 namespace Tensorflow.Gradients
 {
     /// <summary>
     /// Gradients for operators defined in math_ops.py.
     /// </summary>
-    public class math_grad : Python
+    public class math_grad
     {
         public static Tensor[] _AddGrad(Operation op, Tensor[] grads)
         {
@@ -29,6 +30,43 @@ namespace Tensorflow.Gradients
             var r2 = gen_array_ops.reshape(sum2, sy);
 
             return new Tensor[] { r1, r2 };
+        }
+
+        public static Tensor[] _DivNoNanGrad(Operation op, Tensor[] grads)
+        {
+            var grad = grads[0];
+            var x = op.inputs[0];
+            var y = op.inputs[1];
+            var sx = array_ops.shape(x);
+            var sy = array_ops.shape(y);
+            var (rx, ry) = gen_array_ops.broadcast_gradient_args(sx, sy);
+            x = math_ops.conj(x);
+            y = math_ops.conj(y);
+
+            var reduce_sum1 = math_ops.reduce_sum(math_ops.div_no_nan(grad, y), rx);
+            var reduce_sum2 = math_ops.reduce_sum(grad * math_ops.div_no_nan(math_ops.div_no_nan(-x, y), y), ry);
+
+            return new Tensor[]
+            {
+                array_ops.reshape(reduce_sum1, sx),
+                array_ops.reshape(reduce_sum2, sy)
+            };
+        }
+
+        /// <summary>
+        /// Returns grad * exp(x).
+        /// </summary>
+        /// <param name="op"></param>
+        /// <param name="grads"></param>
+        /// <returns></returns>
+        public static Tensor[] _ExpGrad(Operation op, Tensor[] grads)
+        {
+            var grad = grads[0];
+            var y = op.outputs[0];  // y = e^x
+            return with(ops.control_dependencies(new Operation[] { grad }), dp => {
+                y = math_ops.conj(y);
+                return new Tensor[] { math_ops.mul_no_nan(y, grad) };
+            });
         }
 
         public static Tensor[] _IdGrad(Operation op, Tensor[] grads)
@@ -214,6 +252,31 @@ namespace Tensorflow.Gradients
             var reshape2 = gen_array_ops.reshape(reduce_sum2, sx);
 
             return new Tensor[] { reshape2, reshape1 };
+        }
+
+        public static Tensor[] _SigmoidGrad(Operation op, Tensor[] grads)
+        {
+            var grad = grads[0];
+            var y = op.outputs[0];
+
+            return with(ops.control_dependencies(grads), delegate
+            {
+                y = math_ops.conj(y);
+                return new Tensor[] { gen_math_ops.sigmoid_grad(y, grad) };
+            });
+        }
+
+        public static Tensor[] _SquareGrad(Operation op, Tensor[] grads)
+        {
+            var grad = grads[0];
+            var x = op.inputs[0];
+
+            return with(ops.control_dependencies(grads), delegate
+            {
+                x = math_ops.conj(x);
+                var y = constant_op.constant(2.0f, dtype: x.dtype);
+                return new Tensor[] { math_ops.multiply(grad, math_ops.multiply(x, y)) };
+            });
         }
 
         public static Tensor[] _PowGrad(Operation op, Tensor[] grads)

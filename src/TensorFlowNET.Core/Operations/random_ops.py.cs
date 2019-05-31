@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using static Tensorflow.Python;
 
 namespace Tensorflow
 {
-    public class random_ops : Python
+    public class random_ops
     {
         /// <summary>
         /// 
@@ -48,7 +49,7 @@ namespace Tensorflow
         /// <returns>A tensor of the specified shape filled with random uniform values.</returns>
         public static Tensor random_uniform(int[] shape, 
             float minval = 0,
-            float? maxval = null,
+            float maxval = 1,
             TF_DataType dtype = TF_DataType.TF_FLOAT, 
             int? seed = null, 
             string name = null)

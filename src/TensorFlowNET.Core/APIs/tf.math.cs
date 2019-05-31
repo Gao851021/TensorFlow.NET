@@ -277,9 +277,24 @@ namespace Tensorflow
         }
 
         public static Tensor reduce_sum(Tensor input, int axis, int? reduction_indices = null)
-        {
-            return math_ops.reduce_sum(input, axis);
-        }
+            => math_ops.reduce_sum(input, axis);
+
+        /// <summary>
+        /// Computes the maximum of elements across dimensions of a tensor.
+        /// </summary>
+        /// <param name="input_tensor"></param>
+        /// <param name="axis"></param>
+        /// <param name="keepdims"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static Tensor reduce_max(Tensor input_tensor, int[] axis = null, bool keepdims = false, string name = null)
+            => math_ops.reduce_max(input_tensor, axis, keepdims, name);
+
+        public static Tensor reduce_min(Tensor input_tensor, int[] axis = null, bool keepdims = false, string name = null)
+            => math_ops.reduce_min(input_tensor, axis, keepdims, name);
+
+        public static Tensor sigmoid<T>(T x, string name = null)
+            => math_ops.sigmoid(x, name: name);
 
         public static Tensor sum(Tensor input, int axis, bool keep_dims = false, string name = null)
             => gen_math_ops._sum(input, axis, keep_dims: keep_dims, name: name);
@@ -287,10 +302,16 @@ namespace Tensorflow
         public static Tensor reduce_mean(Tensor input_tensor, int[] axis = null, bool keepdims = false, string name = null, int? reduction_indices = null)
             => math_ops.reduce_mean(input_tensor, axis: axis, keepdims: keepdims, name: name, reduction_indices: reduction_indices);
 
+        public static Tensor round(Tensor x, string name = null)
+            => gen_math_ops.round(x, name: name);
+
         public static Tensor cast(Tensor x, TF_DataType dtype = TF_DataType.DtInvalid, string name = null) 
             => math_ops.cast(x, dtype, name);
 
         public static Tensor argmax(Tensor input, int axis = -1, string name = null, int? dimension = null, TF_DataType output_type = TF_DataType.TF_INT64)
             => gen_math_ops.arg_max(input, axis, name: name, output_type: output_type);
+
+        public static Tensor square(Tensor x, string name = null)
+            => gen_math_ops.square(x, name: name);
     }
 }

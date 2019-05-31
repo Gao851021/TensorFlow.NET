@@ -26,6 +26,44 @@ namespace Tensorflow
             return _op.outputs[0];
         }
 
+        /// <summary>
+        ///    Returns a diagonal tensor with a given diagonal values.
+        /// </summary>
+        /// <param name="diagonal">
+        ///    Rank k tensor where k is at most 1.
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'Diag'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    Given a <c>diagonal</c>, this operation returns a tensor with the <c>diagonal</c> and
+        ///    everything else padded with zeros. The diagonal is computed as follows:
+        ///    
+        ///    Assume <c>diagonal</c> has dimensions [D1,..., Dk], then the output is a tensor of
+        ///    rank 2k with dimensions [D1,..., Dk, D1,..., Dk] where:
+        ///    
+        ///    <c>output[i1,..., ik, i1,..., ik] = diagonal[i1, ..., ik]</c> and 0 everywhere else.
+        ///    
+        ///    For example:
+        ///    
+        ///   <code>
+        ///    # 'diagonal' is [1, 2, 3, 4]
+        ///    tf.diag(diagonal) ==&amp;gt; [[1, 0, 0, 0]
+        ///    [0, 2, 0, 0]
+        ///    [0, 0, 3, 0]
+        ///    [0, 0, 0, 4]]
+        ///   </code>
+        /// </remarks>
+        public static Tensor diag(Tensor diagonal, string name = null)
+        {
+            var op = _op_def_lib._apply_op_helper("Diag", name: name, args: new { diagonal });
+
+            return op.output;
+        }
+
         public static Tensor expand_dims(Tensor input, int axis, string name = null)
         {
             var _op = _op_def_lib._apply_op_helper("ExpandDims", name: name, args: new { input, dim = axis });
@@ -60,6 +98,38 @@ namespace Tensorflow
             _execute.record_gradient("Placeholder", _inputs_flat, _attrs, _result, name);
 
             return new Tensor(_op, 0, dtype);
+        }
+
+        /// <summary>
+        ///    An identity op that triggers an error if a gradient is requested.
+        /// </summary>
+        /// <param name="input">
+        ///    any tensor.
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'PreventGradient'.
+        /// </param>
+        /// <param name="message">
+        ///    Will be printed in the error when anyone tries to differentiate
+        ///    this operation.
+        /// </param>
+        /// <returns>
+        ///    the same input tensor.
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    When executed in a graph, this op outputs its input tensor as-is.
+        ///    
+        ///    When building ops to compute gradients, the TensorFlow gradient system
+        ///    will return an error when trying to lookup the gradient of this op,
+        ///    because no gradient must ever be registered for this function.  This
+        ///    op exists to prevent subtle bugs from silently returning unimplemented
+        ///    gradients in some corner cases.
+        /// </remarks>
+        public static Tensor prevent_gradient(Tensor input, string message = "", string name = null)
+        {
+            var op = _op_def_lib._apply_op_helper("PreventGradient", name: name, args: new { input, message });
+            return op.output;
         }
 
         /// <summary>
@@ -164,7 +234,7 @@ namespace Tensorflow
             return _op.outputs[0];
         }
 
-        public static Tensor select(Tensor condition, Tensor t, Tensor e, string name = null)
+        public static Tensor select<Tx, Ty>(Tensor condition, Tx t, Ty e, string name = null)
         {
             var _op = _op_def_lib._apply_op_helper("Select", name, new { condition, t, e });
             return _op.outputs[0];
@@ -261,6 +331,7 @@ namespace Tensorflow
         /// <returns> A `Tensor`. Has the same type as `input`.</returns>
         public static Tensor squeeze(Tensor input, int[] axis = null, string name = null)
         {
+            if (axis == null) axis = new int[0];
             var _op = _op_def_lib._apply_op_helper("Squeeze", name, args: new { input, squeeze_dims = axis });
 
             return _op.outputs[0];

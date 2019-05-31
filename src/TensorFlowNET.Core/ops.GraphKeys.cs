@@ -25,7 +25,7 @@ namespace Tensorflow
             /// <summary>
             /// Key to collect losses
             /// </summary>
-            public static string LOSSES = "losses";
+            public const string LOSSES = "losses";
 
             /// <summary>
             /// Key to collect Variable objects that are global (shared across machines).
@@ -35,7 +35,9 @@ namespace Tensorflow
 
             public static string TRAIN_OP = "train_op";
 
-            public static string[] _VARIABLE_COLLECTIONS = new string[] { "variables", "trainable_variables" }; 
+            public static string GLOBAL_STEP = GLOBAL_STEP = "global_step";
+
+            public static string[] _VARIABLE_COLLECTIONS = new string[] { "variables", "trainable_variables", "model_variables" }; 
             /// <summary>
             /// Key to collect BaseSaverBuilder.SaveableObject instances for checkpointing.
             /// </summary>
@@ -44,6 +46,9 @@ namespace Tensorflow
             /// Key to collect update_ops
             /// </summary>
             public static string UPDATE_OPS = "update_ops";
+
+            // Key to collect summaries.
+            public const string SUMMARIES = "summaries";
 
             // Used to store v2 summary names.
             public static string _SUMMARY_COLLECTION = "_SUMMARY_V2";

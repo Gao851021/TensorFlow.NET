@@ -37,7 +37,31 @@ namespace Tensorflow
         /// <returns></returns>
         public static Tensor arg_min(Tensor input, int dimension, TF_DataType output_type= TF_DataType.TF_INT64, string name= null)
             =>_op_def_lib._apply_op_helper("ArgMin", name, args: new { input, dimension, output_type }).outputs[0];
-        
+
+
+        /// <summary>
+        ///    Returns 0 if the denominator is zero.
+        /// </summary>
+        /// <param name="x">
+        /// </param>
+        /// <param name="y">
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'DivNoNan'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    
+        ///    *NOTE*: <c>DivNoNan</c> supports broadcasting. More about broadcasting
+        ///    [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+        /// </remarks>
+        public static Tensor div_no_nan(Tensor x, Tensor y, string name = null)
+        {
+            var op = _op_def_lib._apply_op_helper("DivNoNan", name: name, args: new { x, y });
+            return op.output;
+        }
 
         /// <summary>
         /// Computes the mean of elements across dimensions of a tensor.
@@ -106,6 +130,51 @@ namespace Tensorflow
             var _op = _op_def_lib._apply_op_helper("Sin", name, args: new { x });
 
             return _op.outputs[0];
+        }
+
+        /// <summary>
+        ///    Computes sigmoid of <c>x</c> element-wise.
+        /// </summary>
+        /// <param name="x">
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'Sigmoid'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    Specifically, <c>y = 1 / (1 + exp(-x))</c>.
+        /// </remarks>
+        public static Tensor sigmoid(Tensor x, string name = "Sigmoid")
+        {
+            var op = _op_def_lib._apply_op_helper("Sigmoid", name: name, new { x });
+
+            return op.output;
+        }
+
+        /// <summary>
+        ///    Computes the gradient of the sigmoid of <c>x</c> wrt its input.
+        /// </summary>
+        /// <param name="y">
+        /// </param>
+        /// <param name="dy">
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'SigmoidGrad'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    Specifically, <c>grad = dy * y * (1 - y)</c>, where <c>y = sigmoid(x)</c>, and
+        ///    <c>dy</c> is the corresponding input gradient.
+        /// </remarks>
+        public static Tensor sigmoid_grad(Tensor y, Tensor dy, string name = "SigmoidGrad")
+        {
+            var op = _op_def_lib._apply_op_helper("SigmoidGrad", name: name, args: new { y, dy });
+
+            return op.outputs[0];
         }
 
         public static Tensor sinh(Tensor x, string name = null)
@@ -307,6 +376,13 @@ namespace Tensorflow
             return _op.outputs[0];
         }
 
+        public static Tensor mul_no_nan<Tx, Ty>(Tx x, Ty y, string name = null)
+        {
+            var _op = _op_def_lib._apply_op_helper("MulNoNan", name, args: new { x, y });
+
+            return _op.outputs[0];
+        }
+
         public static Tensor real_div(Tensor x, Tensor y, string name = null)
         {
             var _op = _op_def_lib._apply_op_helper("RealDiv", name, args: new { x, y });
@@ -427,6 +503,28 @@ namespace Tensorflow
             var _op = _op_def_lib._apply_op_helper("Range", name, new { start, limit, delta });
 
             return _op.outputs[0];
+        }
+
+        /// <summary>
+        ///    Rounds the values of a tensor to the nearest integer, element-wise.
+        /// </summary>
+        /// <param name="x">
+        /// </param>
+        /// <param name="name">
+        /// If specified, the created operation in the graph will be this one, otherwise it will be named 'Round'.
+        /// </param>
+        /// <returns>
+        ///    The Operation can be fetched from the resulting Tensor, by fetching the Operation property from the result.
+        /// </returns>
+        /// <remarks>
+        ///    Rounds half to even.  Also known as bankers rounding. If you want to round
+        ///    according to the current system rounding mode use std::cint.
+        /// </remarks>
+        public static Tensor round(Tensor x, string name = "Round")
+        {
+            var op = _op_def_lib._apply_op_helper("Round", name: name, new { x });
+
+            return op.output;
         }
 
         /// <summary>

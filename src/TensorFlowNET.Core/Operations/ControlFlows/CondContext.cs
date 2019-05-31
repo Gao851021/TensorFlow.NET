@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Tensorflow.Operations.ControlFlows;
+using static Tensorflow.Python;
 
 namespace Tensorflow.Operations
 {
@@ -107,8 +109,8 @@ namespace Tensorflow.Operations
                 
                 with(ops.control_dependencies(null), ctrl =>
                 {
-                    var (r0, r1) = control_flow_ops._SwitchRefOrTensor(result, _pred);
-                    result = new[] { r0, r1 }[_branch];
+                    var results = control_flow_ops._SwitchRefOrTensor(result, _pred);
+                    result = results[_branch];
                     if (_outer_context != null)
                         _outer_context.AddInnerOp(result.op);
                 });
@@ -118,7 +120,7 @@ namespace Tensorflow.Operations
 
                 // Mark Switch output as seen by this context and any outer contexts,
                 // just like what we do for normal op outputs in _AddOpInternal() below.
-                IControlFlowContext ctxt = this;
+                ControlFlowContext ctxt = this;
                 while (ctxt != null)
                 {
                     ctxt.values.Add(result.name);
@@ -223,8 +225,8 @@ namespace Tensorflow.Operations
                     _values.Add(real_val.name);
                     _external_values[real_val.name] = real_val;
                 }
-                var (t0, t1) = control_flow_ops._SwitchRefOrTensor(real_val, _pred);
-                real_val = new[] {t0, t1}[_branch];
+                var results = control_flow_ops._SwitchRefOrTensor(real_val, _pred);
+                real_val = results[_branch];
                 _external_values[val.name] = real_val;
             }
             else
@@ -238,9 +240,89 @@ namespace Tensorflow.Operations
             return real_val;
         }
 
-        public override void  AddInnerOp(Operation resultOp)
+        protected override void _AddOpInternal(Operation op)
         {
-            throw new NotImplementedException();
+            if (op.inputs.Length == 0)
+            {
+                //If we're in a while loop, remove any control inputs from outside the
+                // loop.
+                _RemoveExternalControlEdges(op);
+                if (!op.control_inputs.Any(input_op => OpInContext(input_op)))
+                    op._add_control_input(_pivot.op);
+            }
+            else
+            {
+                // Make each input to 'op' available in this CondContext. If an input is
+                // already part of this context there's nothing to do, but if it's
+                // external, AddValue() will handle adding the appropriate Switch node and
+                // other bookkeeping.
+                for (int index = 0; index < op.inputs.Length; index++)
+                {
+                    var x = op.inputs[index];
+                    Tensor real_x = null;
+                    if (op.type == "Merge" && x.op.type == "NextIteration")
+                    {
+                        //# Edge case: if we're importing a while loop inside this CondContext,
+                        //# AddValue() will not correctly handle the NextIteration inputs to
+                        //# Merge node. The problem is that the NextIteration should also be
+                        //# part of this context, but if we're importing it won't have been
+                        //# processed and added to the context yet, so AddValue() will try to
+                        //# add a Switch which results in an invalid graph. Instead, we use the
+                        //# NextIteration input as-is here, and it will eventually be added to
+                        //# the context via AddOp().
+                        real_x = x;
+                    }
+                    else
+                    {
+                        real_x = AddValue(x);
+                    }
+                    if (real_x != x)
+                        op._update_input(index, real_x);
+                }
+                // Remove any external control dependency on this op.
+                _RemoveExternalControlEdges(op);
+                // TODO: implement below code dependencies
+                //if (op.graph._is_function(op.type) || op.type == "SymbolicGradient")
+                //    op._add_control_input(_pivot.op);
+            }
+
+            // Mark op's outputs as seen by this context and any outer contexts.
+            var output_names = op.outputs.Select(x => x.name).ToArray();
+            ControlFlowContext ctxt = this;
+            while (ctxt != null)
+            {
+                foreach (var name in output_names)
+                    ctxt.values.Add(name);
+                ctxt = ctxt.outer_context;
+            }
+
+            if (_outer_context != null || !control_flow_ops.IsLoopExit(op))
+                op.graph.prevent_fetching(op);
+
+            if (_outer_context != null)
+                _outer_context.AddInnerOp(op);
+        }
+
+        public override GradLoopState grad_state
+        {
+            get
+            {
+                var whc = GetWhileContext();
+                if (whc != null)
+                    return whc.grad_state;
+                return null;
+            }
+        }
+
+        public override bool back_prop
+        {
+            get
+            {
+                var whc = GetWhileContext();
+                if (whc != null)
+                    return whc.back_prop;
+                return false;
+            }
         }
 
         public CondContextDef to_proto(string export_scope)
@@ -254,7 +336,7 @@ namespace Tensorflow.Operations
 
             ret.Enter();
             foreach (var nested_def in proto.NestedContexts)
-                throw new NotImplementedException("");
+                from_control_flow_context_def(nested_def, import_scope: import_scope);
             ret.Exit();
             return ret;
         }

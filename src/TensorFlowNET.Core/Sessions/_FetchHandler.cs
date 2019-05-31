@@ -33,6 +33,8 @@ namespace Tensorflow
                         _fetches.Add(val);
                         _ops.Add(false);
                         break;
+                    default:
+                        throw new NotImplementedException("_FetchHandler fetch");
                 }
 
             }
@@ -42,7 +44,7 @@ namespace Tensorflow
 
         public NDArray build_results(BaseSession session, NDArray[] tensor_values)
         {
-            var full_values = new List<object>();
+            var full_values = new List<NDArray>();
             if (_final_fetches.Count != tensor_values.Length)
                 throw new InvalidOperationException("_final_fetches mismatch tensor_values");
 
@@ -60,6 +62,9 @@ namespace Tensorflow
                                 full_values.Add(float.NaN);
                                 break;
                             case "Single":
+                                full_values.Add(float.NaN);
+                                break;
+                            case "String":
                                 full_values.Add(float.NaN);
                                 break;
                             default:

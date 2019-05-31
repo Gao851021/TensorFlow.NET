@@ -4,7 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>TensorFlow.NET</AssemblyName>
     <RootNamespace>Tensorflow</RootNamespace>
-    <Version>0.6.0</Version>
+    <TargetTensorFlow>1.14.0</TargetTensorFlow>
+    <Version>0.8.0</Version>
     <Authors>Haiping Chen</Authors>
     <Company>SciSharp STACK</Company>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -16,15 +17,15 @@
     <PackageTags>TensorFlow, NumSharp, SciSharp, MachineLearning, TensorFlow.NET, C#</PackageTags>
     <Description>Google's TensorFlow full binding in .NET Standard.
 Docs: https://tensorflownet.readthedocs.io</Description>
-    <AssemblyVersion>0.6.0.0</AssemblyVersion>
-    <PackageReleaseNotes>Changes since v0.5:
-Added Nearest Neighbor.
-Fix memory leak issue when allocating Tensor.
-Fix control flow bug.
-More math APIs.
-More unit tests.</PackageReleaseNotes>
+    <AssemblyVersion>0.8.0.0</AssemblyVersion>
+    <PackageReleaseNotes>Changes since v0.7:
+
+Add XOR example.
+Add KMeans example.
+Add Object Detection example.
+Add Word2Vec example.</PackageReleaseNotes>
     <LangVersion>7.2</LangVersion>
-    <FileVersion>0.6.0.0</FileVersion>
+    <FileVersion>0.8.0.0</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -48,7 +49,7 @@ More unit tests.</PackageReleaseNotes>
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.7.0" />
-    <PackageReference Include="NumSharp" Version="0.9.0" />
+    <PackageReference Include="NumSharp" Version="0.10.2" />
   </ItemGroup>
 
   <ItemGroup>

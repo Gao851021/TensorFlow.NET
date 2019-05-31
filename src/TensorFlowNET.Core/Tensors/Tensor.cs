@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using static Tensorflow.c_api;
+using static Tensorflow.Python;
 
 namespace Tensorflow
 {
@@ -13,7 +14,7 @@ namespace Tensorflow
     /// A tensor is a generalization of vectors and matrices to potentially higher dimensions. 
     /// Internally, TensorFlow represents tensors as n-dimensional arrays of base datatypes.
     /// </summary>
-    public partial class Tensor : Python, IDisposable, ITensorOrOperation
+    public partial class Tensor : IDisposable, ITensorOrOperation
     {
         private readonly IntPtr _handle;
 
@@ -83,9 +84,14 @@ namespace Tensorflow
             return shape.Select(x => (int)x).ToArray();
         }
 
-        public TensorShape getShape()
+        public TensorShape GetShape()
         {
             return tensor_util.to_shape(shape);
+        }
+
+        public void SetShape(Shape shape)
+        {
+            this.shape = shape.Dimensions;
         }
 
         /// <summary>
@@ -181,17 +187,24 @@ namespace Tensorflow
         {
             switch (type.Name)
             {
+                case "Char":
+                    return TF_DataType.TF_UINT8;
                 case "Int16":
                     return TF_DataType.TF_INT16;
                 case "Int32":
                     return TF_DataType.TF_INT32;
+                case "Int64":
+                    return TF_DataType.TF_INT64;
                 case "Single":
                     return TF_DataType.TF_FLOAT;
                 case "Double":
                     return TF_DataType.TF_DOUBLE;
                 case "Byte":
+                    return TF_DataType.TF_UINT8;
                 case "String":
                     return TF_DataType.TF_STRING;
+                case "Boolean":
+                    return TF_DataType.TF_BOOL;
                 default:
                     throw new NotImplementedException("ToTFDataType error");
             }
@@ -272,5 +285,6 @@ namespace Tensorflow
             c_api.TF_DeleteTensor(_handle);
             status.Dispose();
         }
+
     }
 }
